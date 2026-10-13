@@ -44,6 +44,7 @@ from litellm.proxy.auth.authorization import (
     can_read_log_owner,
     can_read_team_logs,
     resolve_owned_read_scope,
+    resolve_spend_log_read_scope,
 )
 from litellm.proxy.auth.authorization_dependencies import (
     LogTeamLookup,
@@ -601,13 +602,7 @@ async def view_spend_tags(
                 "Database not connected. Connect a database to your proxy - https://docs.litellm.ai/docs/simple_proxy#managing-auth---virtual-keys"
             )
 
-        read_scope: Final = (
-            AllRows()
-            if is_admin_view_safe(user_api_key_dict=user_api_key_dict)
-            else await _spend_log_read_scope(user_api_key_dict, log_team_lookup)
-            if _can_user_view_spend_log(user_api_key_dict=user_api_key_dict)
-            else OwnedRows(user_api_key_dict.user_id)
-        )
+        read_scope: Final = await resolve_spend_log_read_scope(user_api_key_dict, log_team_lookup)
         response: Final = await get_spend_by_tags(
             prisma_client=prisma_client,
             read_scope=read_scope,
@@ -4567,13 +4562,7 @@ async def ui_view_session_spend_logs(
                 detail="Database not connected",
             )
 
-        read_scope: Final = (
-            AllRows()
-            if is_admin_view_safe(user_api_key_dict=user_api_key_dict)
-            else await _spend_log_read_scope(user_api_key_dict, log_team_lookup)
-            if _can_user_view_spend_log(user_api_key_dict=user_api_key_dict)
-            else OwnedRows(user_api_key_dict.user_id)
-        )
+        read_scope: Final = await resolve_spend_log_read_scope(user_api_key_dict, log_team_lookup)
         scope_clause, scope_params = read_scope_sql(read_scope, 4)
         scope_sql: Final = f" AND {scope_clause}" if scope_clause else ""
         where_conditions: Final = {"session_id": session_id, **_read_scope_where(read_scope)}
